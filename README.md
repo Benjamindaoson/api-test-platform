@@ -85,6 +85,30 @@ uv run python -m aqe.stucktoship_gate --base-url http://127.0.0.1:8000
 
 The CLI defaults to `http://127.0.0.1:8010`; override it with `--base-url` or `AQE_STUCKTOSHIP_BASE_URL`. If the target requires an API key, set `AQE_STUCKTOSHIP_API_KEY`; AQE uses it only in the request header and never includes it in evidence.
 
+### Operational evidence, replay, and change-triggered gates
+
+Use `--evidence-dir` to retain a redacted JSON evidence bundle. AQE removes sensitive-key fields, credential-shaped strings, explicit API keys, and local absolute paths before it prints or persists evidence. The bundle is an audit artifact for a bounded run, not a store for raw target logs.
+
+```powershell
+# A code, Prompt, or knowledge/index change invokes the real target gate.
+uv run python -m aqe.change_gate `
+  --changed-file prompts/system_answer.md `
+  --changed-file knowledge/courses/rag-basics.md `
+  --base-url http://127.0.0.1:8000 `
+  --evidence-dir .aqe/evidence
+
+# Re-run only the case IDs captured in a previous compatible bundle.
+uv run python -m aqe.incident_replay `
+  --evidence .aqe/evidence/<evidence-id>.json `
+  --base-url http://127.0.0.1:8000 `
+  --evidence-dir .aqe/evidence
+
+# Reproduce the deterministic Agent tool-boundary corpus; no real tools run.
+uv run python -m aqe.tool_simulator
+```
+
+`aqe.change_gate` accepts repeated `--changed-file` values for CI. Without them it obtains `git diff --name-only HEAD~1...HEAD`. It reports `not_applicable` for a change set with no AQE-relevant path; that is intentionally different from a quality `pass`. The built-in tool corpus verifies unknown-tool, missing-argument, permission, timeout, and duplicate-call failures. It is a policy regression benchmark, not a claim of general Agent reliability.
+
 ## Architecture
 
 ```text

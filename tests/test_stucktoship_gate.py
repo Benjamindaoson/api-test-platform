@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 
 from aqe.stucktoship import (
@@ -87,3 +88,25 @@ def test_cli_defaults_to_local_edurag_url_and_emits_json_evidence(monkeypatch, c
     assert exit_code == 0
     assert captured == {"base_url": "http://127.0.0.1:8010", "api_key": ""}
     assert '"verdict": "pass"' in capsys.readouterr().out
+
+
+def test_cli_persists_sanitized_evidence_bundle(tmp_path, capsys):
+    responses = _passing_responses()
+    course_case = next(case for case in load_stucktoship_dataset().cases if case.expected_route == "course")
+    responses[course_case.id] = replace(
+        responses[course_case.id],
+        trace={"token": "not-for-evidence", "source_path": "D:\\Users\\alice\\repo\\main.py"},
+    )
+
+    exit_code = main(
+        ["--evidence-dir", str(tmp_path)],
+        client_factory=lambda **_kwargs: PlannedClient(responses),
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "not-for-evidence" not in output
+    assert "D:\\Users\\alice" not in output
+    artifact = next(tmp_path.glob("*.json"))
+    saved = json.loads(artifact.read_text(encoding="utf-8"))
+    assert saved["evidence"]["case_results"][0]["response"]["trace"]["token"] == "[REDACTED]"

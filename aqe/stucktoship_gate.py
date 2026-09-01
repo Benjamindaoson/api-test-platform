@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass
-from typing import Callable, Protocol
+from typing import Callable, Collection, Protocol
 
+from aqe.evidence_store import EvidenceStore
+from aqe.redaction import redact_for_evidence
 from aqe.stucktoship import (
     DEFAULT_STUCKTOSHIP_BASE_URL,
     StuckToShipCase,
@@ -79,8 +81,31 @@ def run_stucktoship_gate(
     client: StuckToShipAnswerer | None = None,
     base_url: str | None = None,
     api_key: str | None = None,
+    case_ids: Collection[str] | None = None,
 ) -> StuckToShipEvidence:
     dataset = load_stucktoship_dataset()
+    selected_cases = dataset.cases
+    if case_ids is not None:
+        requested = tuple(dict.fromkeys(case_ids))
+        available = {case.id: case for case in dataset.cases}
+        missing = tuple(case_id for case_id in requested if case_id not in available)
+        if missing:
+            return StuckToShipEvidence(
+                dataset_version=dataset.version,
+                target="stucktoship-http",
+                verdict="escalate",
+                reasons=(f"Requested evaluation cases are unavailable: {', '.join(missing)}.",),
+                case_results=(),
+            )
+        if not requested:
+            return StuckToShipEvidence(
+                dataset_version=dataset.version,
+                target="stucktoship-http",
+                verdict="escalate",
+                reasons=("No evaluation cases were requested for target replay.",),
+                case_results=(),
+            )
+        selected_cases = tuple(available[case_id] for case_id in requested)
     if client is None:
         configured_url, configured_key = local_stucktoship_config()
         client = StuckToShipClient(
@@ -89,7 +114,7 @@ def run_stucktoship_gate(
         )
 
     case_results: list[StuckToShipCaseResult] = []
-    for case in dataset.cases:
+    for case in selected_cases:
         try:
             response = client.ask(case)
         except StuckToShipTargetError as error:
@@ -168,12 +193,24 @@ def main(
 ) -> int:
     parser = argparse.ArgumentParser(description="Run AQE against the local StuckToShip RAG target.")
     parser.add_argument("--base-url", default=None, help="StuckToShip HTTP origin")
+    parser.add_argument(
+        "--evidence-dir",
+        default=None,
+        help="Optional directory for a redacted AQE evidence bundle.",
+    )
     args = parser.parse_args(argv)
     configured_url, api_key = local_stucktoship_config()
     base_url = args.base_url or configured_url or DEFAULT_STUCKTOSHIP_BASE_URL
     client = client_factory(base_url=base_url, api_key=api_key)
     evidence = run_stucktoship_gate(client=client)
-    print(json.dumps(evidence.to_dict(), ensure_ascii=False))
+    serialized = redact_for_evidence(evidence.to_dict(), secrets=(api_key or "",))
+    if args.evidence_dir:
+        artifact = EvidenceStore(args.evidence_dir, secrets=(api_key or "",)).persist(evidence.to_dict())
+        serialized["evidence_artifact"] = {
+            "evidence_id": artifact.evidence_id,
+            "file_name": artifact.path.name,
+        }
+    print(json.dumps(serialized, ensure_ascii=False))
     return {"pass": 0, "block": 1, "escalate": 2}[evidence.verdict]
 
 

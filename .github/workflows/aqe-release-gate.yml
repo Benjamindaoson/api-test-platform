@@ -10,6 +10,7 @@ on:
       - pyproject.toml
       - uv.lock
       - .github/workflows/aqe-release-gate.yml
+      - openspec/changes/aqe-operational-gate/**
   pull_request:
     branches: [main]
     paths:
@@ -19,6 +20,7 @@ on:
       - pyproject.toml
       - uv.lock
       - .github/workflows/aqe-release-gate.yml
+      - openspec/changes/aqe-operational-gate/**
 
 permissions:
   contents: read
@@ -35,3 +37,7 @@ jobs:
         run: uv sync --locked
       - name: Run AQE verification suite
         run: uv run python -m pytest tests
+      - name: Verify deterministic Agent tool-boundary benchmark
+        run: uv run python -m aqe.tool_simulator
+      - name: Validate operational gate contract
+        run: npx --yes @fission-ai/openspec@latest validate aqe-operational-gate --strict

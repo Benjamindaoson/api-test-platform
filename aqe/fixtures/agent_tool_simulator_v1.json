@@ -1,0 +1,51 @@
+{
+  "version": "agent-tool-simulator-v1",
+  "tools": [
+    {
+      "name": "search_docs",
+      "required_arguments": ["query"],
+      "allowed_roles": ["researcher"]
+    },
+    {
+      "name": "fetch_status",
+      "required_arguments": ["ticket"],
+      "allowed_roles": ["researcher", "viewer"],
+      "behavior": "timeout"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "unknown-tool",
+      "role": "researcher",
+      "calls": [{"tool_name": "delete_customer", "arguments": {}}],
+      "expected_rule_id": "tool-unknown"
+    },
+    {
+      "id": "missing-arguments",
+      "role": "researcher",
+      "calls": [{"tool_name": "search_docs", "arguments": {}}],
+      "expected_rule_id": "tool-arguments"
+    },
+    {
+      "id": "permission-denied",
+      "role": "viewer",
+      "calls": [{"tool_name": "search_docs", "arguments": {"query": "RAG"}}],
+      "expected_rule_id": "tool-permission"
+    },
+    {
+      "id": "tool-timeout",
+      "role": "researcher",
+      "calls": [{"tool_name": "fetch_status", "arguments": {"ticket": "AQE-1"}}],
+      "expected_rule_id": "tool-timeout"
+    },
+    {
+      "id": "duplicate-call",
+      "role": "researcher",
+      "calls": [
+        {"tool_name": "search_docs", "arguments": {"query": "RAG"}},
+        {"tool_name": "search_docs", "arguments": {"query": "RAG"}}
+      ],
+      "expected_rule_id": "tool-duplicate"
+    }
+  ]
+}
