@@ -1,0 +1,14 @@
+{
+  "version": "historical-incidents-v1",
+  "incidents": [
+    {
+      "id": "edurag-bom-code-index",
+      "source_project": "EduRAG",
+      "query": "Where is create_app defined in main.py?",
+      "observed_before_fix": "create is in core/stream_queue.py:14.",
+      "root_cause": "UTF-8 BOM made AST parsing silently skip main.py.",
+      "expected_answer_fragments": ["create_app", "main.py"],
+      "fixed_revision": "145ce56"
+    }
+  ]
+}

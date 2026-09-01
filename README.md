@@ -109,6 +109,12 @@ uv run python -m aqe.tool_simulator
 
 `aqe.change_gate` accepts repeated `--changed-file` values for CI. Without them it obtains `git diff --name-only HEAD~1...HEAD`. It reports `not_applicable` for a change set with no AQE-relevant path; that is intentionally different from a quality `pass`. The built-in tool corpus verifies unknown-tool, missing-argument, permission, timeout, and duplicate-call failures. It is a policy regression benchmark, not a claim of general Agent reliability.
 
+### Real LangGraph traces, verified incidents, and local audit foundation
+
+AQE can now normalize the read-only `tool_calls` / `tool` message structure emitted by LangGraph-style Agents and run it through the declared tool policy without importing or executing the Agent runtime. The initial historical corpus records the verified EduRAG BOM code-index regression (`create_app` should resolve from `main.py`); it is intentionally separate from synthetic fault profiles.
+
+The audit ledger is local, append-only and hash chained. Its role labels (`system`, `operator`, `auditor`, `viewer`) are an application policy seam, not SSO or enterprise RBAC. Trend summaries use only verdict metadata and never raw answers or target traces. Cloud object storage, retention policy and identity-provider integration remain deployment work rather than claims made by this repository.
+
 ## Architecture
 
 ```text
