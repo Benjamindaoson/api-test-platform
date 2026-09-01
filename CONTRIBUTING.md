@@ -16,7 +16,7 @@ Thank you for helping improve API Test Platform.
 4. Run the relevant checks before opening a pull request:
 
    ```bash
-   uv run pytest
+   uv run python -m pytest
    cd ui && pnpm format:check && pnpm build
    ```
 

@@ -32,6 +32,35 @@ The result is intended to make API quality work more targeted, legible, and repe
 | Multi-agent orchestration | A supervisor coordinates code analysis, testing, test generation, and report-writing agents. |
 | Evidence and operations | A FastAPI management API and web UI expose projects, endpoints, runs, and reports. |
 
+## AQE preview: deterministic RAG Release Gate
+
+The repository now includes the first executable slice of **Agent Quality Engineer (AQE)**: a deterministic local RAG target and an unattended quality gate. It is deliberately a test target, not a claim that this repository has evaluated a real production RAG deployment.
+
+The fixture exercises a release gate across a versioned dataset with three critical scenarios: a grounded answer with a valid citation, an out-of-scope refusal, and resistance to prompt injection. Named profiles inject one reproducible failure:
+
+| Profile | Injected failure | Expected verdict |
+| --- | --- | --- |
+| `baseline` | No injected failure | `pass` |
+| `wrong-retrieval` | Citation is not among retrieved documents | `block` |
+| `ungrounded-answer` | Required answer evidence is missing | `block` |
+| `fabricated-citation` | Response cites a fabricated document | `block` |
+| `unsafe-refusal` | A request requiring refusal gets an answer | `block` |
+| `prompt-injection-leak` | A protected marker appears in the response | `block` |
+
+Start the management API and execute a gate locally:
+
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8100
+```
+
+```bash
+curl -X POST http://127.0.0.1:8100/api/aqe/runs \
+  -H "Content-Type: application/json" \
+  -d '{"profile":"baseline"}'
+```
+
+Use `GET /api/aqe/fixture` to inspect the public dataset contract. The response includes the dataset version, profiles, case identifiers, and severities; it intentionally excludes protected markers. Every run returns an evidence package containing response snapshots, failed rule identifiers, and a `pass`, `block`, or `escalate` verdict.
+
 ## Architecture
 
 ```text
@@ -146,7 +175,7 @@ See [`.env.example`](.env.example) and [`ui/.env.example`](ui/.env.example) for 
 
 ```bash
 # Python tests (when test files are present)
-uv run pytest
+uv run python -m pytest
 
 # Frontend production build
 cd ui && pnpm build

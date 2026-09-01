@@ -29,6 +29,10 @@ from services.db import (
 from tools.codegraph_tools import codegraph_affected_impl as codegraph_affected
 from tools.api_test_tools import run_api_tests_impl as run_api_tests
 from tools.api_gen_tools import parse_openapi_spec_impl as parse_openapi_spec
+from aqe.dataset import load_dataset
+from aqe.fixture import supported_profiles
+from aqe.presentation import public_evidence
+from aqe.runner import run_release_gate
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +84,52 @@ class TestRequest(BaseModel):
 
 class EndpointSyncRequest(BaseModel):
     project_id: str
+
+
+class AQERunRequest(BaseModel):
+    """Request an unattended run against the deterministic AQE fixture."""
+
+    profile: str = "baseline"
+
+
+class AQEFixtureCaseResponse(BaseModel):
+    id: str
+    severity: str
+
+
+class AQEFixtureResponse(BaseModel):
+    dataset_version: str
+    profiles: list[str]
+    cases: list[AQEFixtureCaseResponse]
+
+
+class AQERuleFindingResponse(BaseModel):
+    rule_id: str
+    message: str
+
+
+class AQEResponseSnapshot(BaseModel):
+    answer: str
+    retrieved_document_ids: list[str]
+    citations: list[str]
+    refused: bool
+    profile: str
+
+
+class AQECaseResultResponse(BaseModel):
+    case_id: str
+    severity: str
+    passed: bool
+    findings: list[AQERuleFindingResponse]
+    response: AQEResponseSnapshot
+
+
+class AQEReleaseEvidenceResponse(BaseModel):
+    dataset_version: str
+    profile: str
+    verdict: str
+    reasons: list[str]
+    case_results: list[AQECaseResultResponse]
 
 
 # ── Lifespan ──
@@ -290,6 +340,32 @@ async def sync_endpoints(body: EndpointSyncRequest):
 
 
 # ── Agent-fused actions ──
+
+
+# ── Agent Quality Engineer ──
+
+@app.get("/api/aqe/fixture", response_model=AQEFixtureResponse)
+async def get_aqe_fixture() -> AQEFixtureResponse:
+    """Expose the public fixture contract without leaking protected markers."""
+    dataset = load_dataset()
+    return {
+        "dataset_version": dataset.version,
+        "profiles": list(supported_profiles()),
+        "cases": [
+            {"id": case.id, "severity": case.severity}
+            for case in dataset.cases
+        ],
+    }
+
+
+@app.post("/api/aqe/runs", response_model=AQEReleaseEvidenceResponse)
+async def run_aqe_release_gate(body: AQERunRequest) -> AQEReleaseEvidenceResponse:
+    """Run the local RAG release gate without requiring database connectivity."""
+    try:
+        return AQEReleaseEvidenceResponse.model_validate(public_evidence(run_release_gate(body.profile)))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
 
 @app.post("/api/analyze")
 async def analyze_code(body: AnalyzeRequest):
