@@ -1,0 +1,97 @@
+version: "3.9"
+
+services:
+  # ═══════════════ PostgreSQL ═══════════════
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: api_test_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ═══════════════ Redis ═══════════════
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ═══════════════ LangGraph API Server ═══════════════
+  langgraph:
+    build:
+      context: .
+      dockerfile: Dockerfile.langgraph
+    environment:
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-openai}
+      MODEL_NAME: ${MODEL_NAME:-deepseek-v4-pro}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.deepseek.com/v1}
+      CODEGRAPH_PATH: codegraph
+      CODEGRAPH_DEFAULT_PROJECT: /workspace
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: api_test_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    ports:
+      - "8200:8200"
+    volumes:
+      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ═══════════════ FastAPI Management API ═══════════════
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: api_test_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    ports:
+      - "8100:8100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ═══════════════ Next.js Frontend ═══════════════
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_LANGGRAPH_URL: http://langgraph:8200
+      NEXT_PUBLIC_API_URL: http://api:8100
+    ports:
+      - "3000:3000"
+    depends_on:
+      - langgraph
+      - api
+
+volumes:
+  pgdata:

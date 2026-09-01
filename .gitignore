@@ -1,0 +1,39 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / Next.js
+ui/node_modules/
+ui/.next/
+ui/out/
+ui/coverage/
+*.tsbuildinfo
+ui/.env.local
+ui/.env.development.local
+ui/.env.test.local
+ui/.env.production.local
+
+# Runtime data and generated artifacts
+workspace/*
+!workspace/.gitkeep
+*.log
+
+# Tooling and operating-system files
+.codegraph/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

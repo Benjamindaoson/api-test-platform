@@ -1,0 +1,27 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js for CodeGraph
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g codegraph
+
+# Install Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source
+COPY . .
+
+# Install LangGraph CLI with inmem support
+RUN pip install --no-cache-dir "langgraph-cli[inmem]"
+
+EXPOSE 8200
+
+CMD ["langgraph", "dev", "--host", "0.0.0.0", "--port", "8200", "--n-jobs-per-worker", "10"]
