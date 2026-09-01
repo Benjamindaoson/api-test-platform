@@ -67,6 +67,24 @@ Use `GET /api/aqe/fixture` to inspect the public dataset contract. The response 
 
 This is a regression benchmark for the repository's **built-in deterministic faults**. It is not evidence that AQE outperforms human testers or existing evaluation systems on production RAG applications. That claim requires the next benchmark tier: historical incidents, knowledge-base changes, and a real service baseline.
 
+### Run a real RAG target: StuckToShip / EduRAG
+
+AQE now also contains a read-only HTTP adapter for the local StuckToShip (EduRAG) service. It calls only `POST /api/v1/rag/ask`; it does not upload documents, rebuild an index, or add an API endpoint that can execute against an arbitrary URL.
+
+The versioned `stucktoship-rag-v1` corpus checks one course question, code-symbol lookup, API-key FAQ, and ambiguity handling. A pass requires the expected route, a citation where the question is answerable, and minimal case-specific answer evidence. Network and target-contract errors become `escalate`; evaluated quality regressions become `block`.
+
+Start the target locally, then run AQE from this repository:
+
+```powershell
+Set-Location 'D:\01_project\备课\备课配套项目\EduRAG项目\edu-rag'
+.\.venv\Scripts\python.exe main.py
+
+Set-Location 'D:\01_project\王牌项目-从idea到产品\企业级 API 智能测试平台\api-test-platform'
+uv run python -m aqe.stucktoship_gate --base-url http://127.0.0.1:8000
+```
+
+The CLI defaults to `http://127.0.0.1:8010`; override it with `--base-url` or `AQE_STUCKTOSHIP_BASE_URL`. If the target requires an API key, set `AQE_STUCKTOSHIP_API_KEY`; AQE uses it only in the request header and never includes it in evidence.
+
 ## Architecture
 
 ```text

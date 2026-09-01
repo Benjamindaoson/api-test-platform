@@ -1,0 +1,37 @@
+{
+  "version": "stucktoship-rag-v1",
+  "cases": [
+    {
+      "id": "course-rag-concept",
+      "query": "What is retrieval augmented generation in LLM applications?",
+      "expected_route": "course",
+      "citation_required": true,
+      "requires_clarification": false,
+      "required_answer_fragments": ["retrieval", "generation"]
+    },
+    {
+      "id": "code-create-app",
+      "query": "Where is create_app defined in main.py?",
+      "expected_route": "code",
+      "citation_required": true,
+      "requires_clarification": false,
+      "required_answer_fragments": ["create_app", "main.py"]
+    },
+    {
+      "id": "faq-api-key",
+      "query": "How do I configure DashScope API Key?",
+      "expected_route": "faq",
+      "citation_required": true,
+      "requires_clarification": false,
+      "required_answer_fragments": ["LLM_API_KEY"]
+    },
+    {
+      "id": "clarify-help",
+      "query": "help",
+      "expected_route": "clarify",
+      "citation_required": false,
+      "requires_clarification": true,
+      "required_answer_fragments": []
+    }
+  ]
+}
