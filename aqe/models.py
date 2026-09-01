@@ -69,3 +69,27 @@ class EvidencePackage:
     verdict: str
     reasons: tuple[str, ...]
     case_results: tuple[CaseResult, ...]
+
+
+@dataclass(frozen=True)
+class BenchmarkScenario:
+    """Expected and observed result for one deterministic fault replay."""
+
+    profile: str
+    expected_rule_id: str
+    observed_verdict: str
+    observed_rule_ids: tuple[str, ...]
+    detected: bool
+
+
+@dataclass(frozen=True)
+class BenchmarkReport:
+    """Aggregate result for a clearly bounded AQE benchmark corpus."""
+
+    corpus: str
+    boundary: tuple[str, ...]
+    total_scenarios: int
+    detected_scenarios: int
+    missed_scenarios: int
+    detection_rate: float
+    scenarios: tuple[BenchmarkScenario, ...]

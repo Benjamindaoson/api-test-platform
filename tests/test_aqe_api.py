@@ -68,3 +68,15 @@ def test_openapi_declares_structured_aqe_response_models():
     assert fixture_schema["content"]["application/json"]["schema"]["$ref"].endswith(
         "/AQEFixtureResponse",
     )
+
+
+def test_benchmark_endpoint_returns_bounded_detection_report():
+    with TestClient(app) as client:
+        response = client.get("/api/aqe/benchmark")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["corpus"] == "built-in-fixture"
+    assert body["detection_rate"] == 1.0
+    assert body["detected_scenarios"] == 5
+    assert len(body["scenarios"]) == 5

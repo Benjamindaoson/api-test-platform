@@ -1,0 +1,37 @@
+name: AQE Release Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - aqe/**
+      - api/**
+      - tests/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/aqe-release-gate.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - aqe/**
+      - api/**
+      - tests/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/aqe-release-gate.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-aqe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Run AQE verification suite
+        run: uv run python -m pytest tests

@@ -61,6 +61,12 @@ curl -X POST http://127.0.0.1:8100/api/aqe/runs \
 
 Use `GET /api/aqe/fixture` to inspect the public dataset contract. The response includes the dataset version, profiles, case identifiers, and severities; it intentionally excludes protected markers. Every run returns an evidence package containing response snapshots, failed rule identifiers, and a `pass`, `block`, or `escalate` verdict.
 
+### Measure the built-in benchmark
+
+`GET /api/aqe/benchmark` replays all five injected high-risk profiles through the same release-gate runner and reports the expected rule, observed rule, verdict, and detection rate. The current fixture corpus produces `5 / 5` detections (`1.0`).
+
+This is a regression benchmark for the repository's **built-in deterministic faults**. It is not evidence that AQE outperforms human testers or existing evaluation systems on production RAG applications. That claim requires the next benchmark tier: historical incidents, knowledge-base changes, and a real service baseline.
+
 ## Architecture
 
 ```text

@@ -30,6 +30,7 @@ from tools.codegraph_tools import codegraph_affected_impl as codegraph_affected
 from tools.api_test_tools import run_api_tests_impl as run_api_tests
 from tools.api_gen_tools import parse_openapi_spec_impl as parse_openapi_spec
 from aqe.dataset import load_dataset
+from aqe.benchmark import run_fixture_benchmark
 from aqe.fixture import supported_profiles
 from aqe.presentation import public_evidence
 from aqe.runner import run_release_gate
@@ -130,6 +131,24 @@ class AQEReleaseEvidenceResponse(BaseModel):
     verdict: str
     reasons: list[str]
     case_results: list[AQECaseResultResponse]
+
+
+class AQEBenchmarkScenarioResponse(BaseModel):
+    profile: str
+    expected_rule_id: str
+    observed_verdict: str
+    observed_rule_ids: list[str]
+    detected: bool
+
+
+class AQEBenchmarkResponse(BaseModel):
+    corpus: str
+    boundary: list[str]
+    total_scenarios: int
+    detected_scenarios: int
+    missed_scenarios: int
+    detection_rate: float
+    scenarios: list[AQEBenchmarkScenarioResponse]
 
 
 # ── Lifespan ──
@@ -365,6 +384,30 @@ async def run_aqe_release_gate(body: AQERunRequest) -> AQEReleaseEvidenceRespons
         return AQEReleaseEvidenceResponse.model_validate(public_evidence(run_release_gate(body.profile)))
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/api/aqe/benchmark", response_model=AQEBenchmarkResponse)
+async def get_aqe_benchmark() -> AQEBenchmarkResponse:
+    """Return the bounded, deterministic fixture benchmark report."""
+    report = run_fixture_benchmark()
+    return AQEBenchmarkResponse(
+        corpus=report.corpus,
+        boundary=list(report.boundary),
+        total_scenarios=report.total_scenarios,
+        detected_scenarios=report.detected_scenarios,
+        missed_scenarios=report.missed_scenarios,
+        detection_rate=report.detection_rate,
+        scenarios=[
+            AQEBenchmarkScenarioResponse(
+                profile=scenario.profile,
+                expected_rule_id=scenario.expected_rule_id,
+                observed_verdict=scenario.observed_verdict,
+                observed_rule_ids=list(scenario.observed_rule_ids),
+                detected=scenario.detected,
+            )
+            for scenario in report.scenarios
+        ],
+    )
 
 
 @app.post("/api/analyze")
