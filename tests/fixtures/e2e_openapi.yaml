@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: Delivery Smoke API
+  version: 1.0.0
+paths:
+  /ping:
+    get:
+      summary: Disposable delivery smoke endpoint
+      responses:
+        "200":
+          description: Pong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string

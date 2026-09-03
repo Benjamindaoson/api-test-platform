@@ -177,11 +177,42 @@ cp .env.example .env
 cd ..
 ```
 
-### 3. Start local dependencies and services
+### 3. Start the management-platform P0 delivery profile
+
+The P0 delivery profile starts PostgreSQL, Redis, the FastAPI management API,
+and the production Next.js UI. It intentionally does **not** start LangGraph,
+call a model provider, or contact a real RAG target.
+
+The `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` values in `.env`
+are consumed by both PostgreSQL and the management API. The profile publishes
+its ports only to `127.0.0.1` by default; it is a local delivery profile, not
+an internet-facing deployment. If another local project already uses a port,
+override `POSTGRES_EXTERNAL_PORT`, `REDIS_EXTERNAL_PORT`,
+`API_EXTERNAL_PORT`, or `UI_EXTERNAL_PORT` for this invocation.
+
+```bash
+docker compose --profile platform up --build --wait
+python scripts/e2e_smoke.py --base-url http://127.0.0.1:8100
+```
+
+The smoke command creates disposable database rows, synchronizes the bundled
+OpenAPI fixture, runs the bundled pytest fixture through `POST /api/test`, and
+verifies the persisted test run and endpoint inventory. Stop and remove only
+that disposable local state with:
+
+```bash
+docker compose --profile platform down -v
+```
+
+The CI workflow also opens `/admin` in Chromium after the smoke run and checks
+that the created `delivery-smoke` project and its passing run are visible in
+the management UI.
+
+### 4. Start local dependencies and services for agent development
 
 ```bash
 # PostgreSQL and Redis only
-docker compose up -d postgres redis
+docker compose --profile platform up -d postgres redis
 
 # Terminal 1: LangGraph agent server
 uv run langgraph dev --host 0.0.0.0 --port 8200 --n-jobs-per-worker 10
@@ -199,7 +230,7 @@ Open:
 - Management API docs: <http://localhost:8100/docs>
 - LangGraph development API: <http://localhost:8200>
 
-### 4. Try a workflow
+### 5. Try a workflow
 
 In the chat UI, ask one of the following:
 
@@ -238,7 +269,11 @@ cd ui && pnpm build
 cd ui && pnpm format:check
 ```
 
-The repository is currently an early open-source release. The full `docker compose up` experience is not yet supported because the UI image definition has not been added; use the local development flow above, or start only `postgres` and `redis` through Compose.
+The repository is currently an early open-source release. The `platform`
+Compose profile is the management-platform delivery slice, with a repeatable
+local smoke command and a CI gate. LangGraph,
+model-provider execution, real RAG targets, object storage, SSO, and RBAC are
+outside that P0 smoke contract and require their own configured environments.
 
 ## Project layout
 
@@ -267,8 +302,8 @@ This platform can execute test commands and inspect source code. Treat every con
 
 ## Roadmap
 
-- [ ] Production-ready UI Docker image and fully verified Compose deployment
-- [ ] Repeatable end-to-end test fixtures and CI workflow
+- [x] UI Docker image, locked frontend build contract, and platform Compose profile
+- [x] Repeatable end-to-end test fixtures and CI workflow
 - [ ] Test-suite review and approval flows
 - [ ] Pluggable test-result sinks and notifications
 - [ ] More example projects and OpenAPI fixtures

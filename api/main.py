@@ -159,7 +159,15 @@ class AQEBenchmarkResponse(BaseModel):
 
 @app.get("/health")
 async def health():
-    db_ok = get_db_pool() is not None
+    pool = get_db_pool()
+    db_ok = pool is not None
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+        except Exception as error:
+            logger.warning("Database health probe failed: %s", error)
+            db_ok = False
     return {
         "status": "ok" if db_ok else "degraded",
         "database": "connected" if db_ok else "disconnected",
@@ -344,9 +352,9 @@ async def sync_endpoints(body: EndpointSyncRequest):
                 ep.get("method", ""),
                 ep.get("summary", ""),
                 ep.get("tags", []),
-                ep.get("parameters", []),
-                ep.get("request_body") or None,
-                ep.get("responses", {}),
+                json.dumps(ep.get("parameters", []), ensure_ascii=False),
+                json.dumps(ep.get("request_body") or None, ensure_ascii=False),
+                json.dumps(ep.get("responses", {}), ensure_ascii=False),
             )
             inserted += 1
 

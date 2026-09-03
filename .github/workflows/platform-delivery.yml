@@ -1,0 +1,81 @@
+name: Platform Delivery
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend and AQE tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - name: Install locked Python dependencies
+        run: uv sync --locked
+      - name: Run all Python tests
+        run: uv run python -m pytest tests -q
+      - name: Compile production Python modules
+        run: uv run python -m compileall -q aqe api scripts agent.py
+      - name: Validate delivery specification
+        run: npx --yes @fission-ai/openspec@1.6.0 validate harden-platform-delivery --strict
+
+  frontend:
+    name: Locked frontend production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Enable repository-pinned pnpm
+        run: corepack enable
+      - name: Install locked frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build production frontend
+        run: pnpm build
+
+  compose-e2e:
+    name: Compose management-platform smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Enable repository-pinned pnpm
+        working-directory: ui
+        run: corepack enable
+      - name: Install locked UI test dependencies
+        working-directory: ui
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium for browser verification
+        working-directory: ui
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Validate Compose model
+        run: docker compose --profile platform config --quiet
+      - name: Build and start the platform profile
+        run: docker compose --profile platform up --build --wait
+      - name: Run public HTTP management smoke
+        run: python scripts/e2e_smoke.py --base-url http://127.0.0.1:8100 --timeout-seconds 30
+      - name: Confirm the UI responds
+        run: curl --fail --retry 10 --retry-connrefused http://127.0.0.1:3000/
+      - name: Confirm the UI displays the smoke project and passed run
+        working-directory: ui
+        run: pnpm exec playwright test e2e/management-flow.spec.ts --reporter=line
+      - name: Collect service logs after failure
+        if: failure()
+        run: docker compose --profile platform logs --no-color
+      - name: Remove disposable platform state
+        if: always()
+        run: docker compose --profile platform down -v --remove-orphans

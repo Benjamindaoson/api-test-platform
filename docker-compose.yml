@@ -1,40 +1,90 @@
-version: "3.9"
-
 services:
-  # ═══════════════ PostgreSQL ═══════════════
   postgres:
     image: postgres:16-alpine
+    profiles: ["platform"]
     environment:
-      POSTGRES_DB: api_test_platform
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-api_test_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_EXTERNAL_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
+      - ./migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 10s
 
-  # ═══════════════ Redis ═══════════════
   redis:
     image: redis:7-alpine
+    profiles: ["platform"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${REDIS_EXTERNAL_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout: 3s
+      retries: 12
+      start_period: 5s
 
-  # ═══════════════ LangGraph API Server ═══════════════
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    profiles: ["platform"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-api_test_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      API_TEST_DIR: /app/workspace/test_suites
+    ports:
+      - "127.0.0.1:${API_EXTERNAL_PORT:-8100}:8100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import json, urllib.request; payload = json.load(urllib.request.urlopen('http://127.0.0.1:8100/health')); raise SystemExit(0 if payload['status'] == 'ok' else 1)\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MANAGEMENT_API_URL: http://localhost:${API_EXTERNAL_PORT:-8100}
+    profiles: ["platform"]
+    environment:
+      NEXT_PUBLIC_MANAGEMENT_API_URL: http://localhost:8100
+      NEXT_PUBLIC_API_URL: http://localhost:8200
+    ports:
+      - "127.0.0.1:${UI_EXTERNAL_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
   langgraph:
     build:
       context: .
       dockerfile: Dockerfile.langgraph
+    profiles: ["agent"]
     environment:
       MODEL_PROVIDER: ${MODEL_PROVIDER:-openai}
       MODEL_NAME: ${MODEL_NAME:-deepseek-v4-pro}
@@ -44,13 +94,13 @@ services:
       CODEGRAPH_DEFAULT_PROJECT: /workspace
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: api_test_platform
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-api_test_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
     ports:
-      - "8200:8200"
+      - "127.0.0.1:${LANGGRAPH_EXTERNAL_PORT:-8200}:8200"
     volumes:
       - ./:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
@@ -59,39 +109,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  # ═══════════════ FastAPI Management API ═══════════════
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-      POSTGRES_DB: api_test_platform
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-    ports:
-      - "8100:8100"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # ═══════════════ Next.js Frontend ═══════════════
-  ui:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile
-    environment:
-      NEXT_PUBLIC_LANGGRAPH_URL: http://langgraph:8200
-      NEXT_PUBLIC_API_URL: http://api:8100
-    ports:
-      - "3000:3000"
-    depends_on:
-      - langgraph
-      - api
 
 volumes:
   pgdata:
