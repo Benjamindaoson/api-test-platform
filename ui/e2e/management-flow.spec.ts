@@ -7,4 +7,5 @@ test("the management page displays the project and passed run created by the pla
   await expect(page.getByText("delivery-smoke", { exact: true })).toBeVisible();
   await expect(page.getByText("e2e_generated_test.py", { exact: false })).toBeVisible();
   await expect(page.getByText("1 通过", { exact: true })).toBeVisible();
+  await expect(page.getByText("API 测试报告", { exact: false })).toBeVisible();
 });

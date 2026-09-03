@@ -26,6 +26,9 @@ def test_run_smoke_exercises_the_persistence_backed_management_flow():
                 "run": {"id": run_id, "status": "passed"},
                 "results": [{"status": "passed"}],
             },
+            ("GET", f"/api/reports?project_id={project_id}"): [
+                {"project_id": project_id, "report_type": "test_run"},
+            ],
         }
         return responses[(method, path)]
 
@@ -48,6 +51,7 @@ def test_run_smoke_exercises_the_persistence_backed_management_flow():
         ("GET", f"/api/endpoints?project_id={project_id}"),
         ("POST", "/api/test"),
         ("GET", f"/api/runs/{run_id}"),
+        ("GET", f"/api/reports?project_id={project_id}"),
     ]
     assert requests[1][2] == {
         "name": "delivery-smoke",

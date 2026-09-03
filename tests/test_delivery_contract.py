@@ -47,6 +47,9 @@ def test_management_api_runtime_declares_its_server_and_test_executor():
     assert '"uvicorn[standard]' in project
     assert '"pytest>=' in project
 
+    api = _read("api/main.py")
+    assert "INSERT INTO reports" in api
+
 
 def test_compose_has_a_model_free_platform_profile_with_readiness_checks():
     compose = _read("docker-compose.yml")

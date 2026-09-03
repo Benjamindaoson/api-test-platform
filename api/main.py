@@ -538,10 +538,24 @@ async def run_tests(body: TestRequest):
         error_message=result.get("stderr", "")[:1000],
     )
 
+    report_title = f"API 测试报告 — {body.test_path or 'api-test-run'}"
+    report_content = json.dumps(result, ensure_ascii=False)
+    async with pool.acquire() as conn:
+        report = await conn.fetchrow(
+            """INSERT INTO reports (project_id, title, report_type, content, format)
+               VALUES ($1, $2, $3, $4, $5) RETURNING id""",
+            body.project_id or None,
+            report_title,
+            "test_run",
+            report_content,
+            "json",
+        )
+
     return {
         "run_id": run_id,
         "status": status,
         "result": result,
+        "report_id": str(report["id"]) if report else None,
     }
 
 

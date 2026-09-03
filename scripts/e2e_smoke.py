@@ -101,6 +101,12 @@ def run_smoke(
     results = run_detail.get("results")
     if run.get("status") != "passed" or not isinstance(results, list) or not results:
         raise SmokeFailure("GET /api/runs/{run_id} did not return a persisted passing result.")
+    reports = requester("GET", f"/api/reports?project_id={project_id}", None)
+    if not isinstance(reports, list) or not any(
+        isinstance(report, dict) and report.get("project_id") == project_id and report.get("report_type") == "test_run"
+        for report in reports
+    ):
+        raise SmokeFailure("GET /api/reports did not return a persisted test report.")
     return {"project_id": project_id, "run_id": run_id, "synced_endpoints": synced_endpoints, "run_status": run["status"]}
 
 
